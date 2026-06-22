@@ -25,7 +25,7 @@ return [
         'secret_key' => '',
     ],
     'market' => [
-        'ticker' => 'AAPL',
+        'ticker' => 'NVDA',
         'cache_seconds' => 300,
     ],
     'uploads_dir' => __DIR__ . '/../uploads',

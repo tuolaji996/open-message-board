@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'turns
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'market') {
     require_admin();
     require_csrf();
-    $ticker = normalize_ticker((string)($_POST['ticker'] ?? 'AAPL'));
+    $ticker = normalize_ticker((string)($_POST['ticker'] ?? 'NVDA'));
     save_market_settings($ticker);
     flash('行情 Ticker 已更新为 ' . $ticker . '。');
     redirect('/admin.php#market-settings');
@@ -175,7 +175,7 @@ $assetVersion = asset_version();
                     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
                     <input type="hidden" name="action" value="market">
                     <label>Ticker
-                        <input name="ticker" value="<?= h(current_market_ticker()) ?>" autocomplete="off" placeholder="AAPL">
+                        <input name="ticker" value="<?= h(current_market_ticker()) ?>" autocomplete="off" placeholder="NVDA">
                     </label>
                     <button type="submit">保存行情 Ticker</button>
                 </form>

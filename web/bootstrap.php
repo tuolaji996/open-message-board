@@ -167,7 +167,7 @@ function market_settings_path(): string
 
 function market_cache_path(string $ticker): string
 {
-    $safe = preg_replace('/[^A-Z0-9._=-]+/', '-', strtoupper($ticker)) ?: 'AAPL';
+    $safe = preg_replace('/[^A-Z0-9._=-]+/', '-', strtoupper($ticker)) ?: 'NVDA';
     return dirname(__DIR__) . '/private/market-cache-' . $safe . '.json';
 }
 
@@ -175,7 +175,7 @@ function normalize_ticker(string $ticker): string
 {
     $ticker = strtoupper(trim($ticker));
     $ticker = preg_replace('/[^A-Z0-9.^=_-]+/', '', $ticker) ?? '';
-    return $ticker !== '' ? mb_substr($ticker, 0, 24) : 'AAPL';
+    return $ticker !== '' ? mb_substr($ticker, 0, 24) : 'NVDA';
 }
 
 function save_market_settings(string $ticker): void
@@ -198,7 +198,7 @@ function save_market_settings(string $ticker): void
 
 function current_market_ticker(): string
 {
-    return normalize_ticker((string)config_value('market.ticker', 'AAPL'));
+    return normalize_ticker((string)config_value('market.ticker', 'NVDA'));
 }
 
 function current_url(): string

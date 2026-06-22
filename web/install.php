@@ -356,7 +356,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                     <input name="admin_user" required value="<?= input_value('admin_user', 'admin') ?>">
                 </label>
                 <label>Market ticker
-                    <input name="market_ticker" required value="<?= input_value('market_ticker', 'AAPL') ?>">
+                    <input name="market_ticker" required value="<?= input_value('market_ticker', 'NVDA') ?>">
                 </label>
                 <label>Admin password
                     <input name="admin_pass" type="password" required autocomplete="new-password">

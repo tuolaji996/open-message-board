@@ -116,7 +116,7 @@ The left rail can display a Yahoo Finance quote card. Configure it in `private/c
 
 ```php
 'market' => [
-    'ticker' => 'AAPL',
+    'ticker' => 'NVDA',
     'cache_seconds' => 300,
 ],
 ```
