@@ -29,21 +29,48 @@ A lightweight open source message board built with PHP and MySQL. It supports pu
 
    The `private/` directory must not be publicly accessible. It contains configuration and database setup files.
 
-3. Create a MySQL database and user for the application.
+3. Create an empty MySQL database and database user for the application.
 
-4. Import the database schema:
+4. Visit the installer in your browser:
+
+   ```text
+   https://your-domain.example/install.php
+   ```
+
+5. Fill in:
+
+   - site name, base URL, timezone, and mail sender
+   - MySQL host, port or socket, database name, database user, and password
+   - first admin username and password
+   - upload directory, if your host needs a custom path
+   - optional Cloudflare Turnstile keys
+   - optional Yahoo Finance ticker
+
+   The installer imports `private/schema.sql`, creates `private/config.php`, generates the admin password hash, and checks that the upload directory is writable.
+
+6. After installation, delete or rename `web/install.php`.
+
+   The installer refuses to run while `private/config.php` exists, but removing it is still the safer production setup.
+
+## Manual Installation
+
+Use this if your host does not allow the web installer to write files.
+
+1. Create a MySQL database and user for the application.
+
+2. Import the database schema:
 
    ```bash
    mysql -u message_board_user -p message_board < private/schema.sql
    ```
 
-5. Copy the sample configuration:
+3. Copy the sample configuration:
 
    ```bash
    cp private/config.sample.php private/config.php
    ```
 
-6. Edit `private/config.php` and set:
+4. Edit `private/config.php` and set:
 
    - `site_name`
    - `base_url`
@@ -54,7 +81,7 @@ A lightweight open source message board built with PHP and MySQL. It supports pu
    - market ticker and cache duration
    - upload directory and image limits
 
-7. Generate an admin password hash:
+5. Generate an admin password hash:
 
    ```bash
    php -r "echo password_hash('change-this-password', PASSWORD_DEFAULT) . PHP_EOL;"
@@ -62,7 +89,7 @@ A lightweight open source message board built with PHP and MySQL. It supports pu
 
    Put the generated value in `private/config.php` as `admin.password_hash`.
 
-8. Create the upload directory if it does not already exist:
+6. Create the upload directory if it does not already exist:
 
    ```bash
    mkdir uploads
@@ -71,7 +98,7 @@ A lightweight open source message board built with PHP and MySQL. It supports pu
 
    The PHP process must be able to write to this directory. If your host uses a different deployment layout, set `uploads_dir` in `private/config.php` to an absolute path outside the public web root.
 
-9. If you want to update Turnstile or the market ticker from the admin panel, make sure the PHP process can write small override files in `private/`.
+7. If you want to update Turnstile or the market ticker from the admin panel, make sure the PHP process can write small override files in `private/`.
 
 ## Optional Cloudflare Turnstile
 
@@ -108,6 +135,7 @@ mysql -u message_board_user -p message_board < private/migrations/2026-06-22-vis
 
 - Keep `private/config.php` out of version control.
 - Keep the web root pointed at `web/`; do not expose the repository root.
+- Delete or rename `web/install.php` after installation.
 - Store uploads outside the public web root when possible, and serve them through application routes.
 - Use a strong admin password and replace any default sample values before deployment.
 - Use HTTPS in production.

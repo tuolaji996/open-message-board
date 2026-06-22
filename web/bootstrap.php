@@ -92,7 +92,7 @@ function site_url(string $path = ''): string
 
 function asset_version(): string
 {
-    return (string)config_value('asset_version', 'open-2');
+    return (string)config_value('asset_version', 'open-3');
 }
 
 function site_theme(): string
