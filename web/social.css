@@ -447,9 +447,9 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 }
 
 .timeline-title-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
     gap: 14px;
     min-width: 0;
 }
@@ -483,7 +483,8 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 }
 
 .top-search {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
     width: 100%;
     min-width: 0;
@@ -502,6 +503,10 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     outline: none;
     padding: 11px 12px;
     transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.top-search input {
+    min-height: 48px;
 }
 
 .top-search input:focus,
@@ -524,8 +529,8 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 }
 
 .top-search button {
-    flex: 0 0 auto;
-    min-width: 62px;
+    min-width: 76px;
+    min-height: 48px;
 }
 
 .feed-tabs {
@@ -569,12 +574,25 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 }
 
 @container (max-width: 520px) {
+    .timeline-title-row {
+        grid-template-columns: 1fr;
+    }
+
+    .timeline-head-actions {
+        justify-content: flex-start;
+    }
+
+    .top-search {
+        grid-template-columns: 1fr;
+    }
+
     .top-search input {
         padding-inline: 10px;
     }
 
     .top-search button {
-        min-width: 54px;
+        width: 100%;
+        min-width: 0;
         padding-inline: 12px;
     }
 }
@@ -1694,7 +1712,7 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     }
 
     .top-search {
-        flex-basis: 100%;
+        grid-template-columns: 1fr;
     }
 
     .top-search input {
@@ -1702,7 +1720,8 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     }
 
     .top-search button {
-        min-width: 54px;
+        width: 100%;
+        min-width: 0;
         padding-inline: 12px;
     }
 
@@ -1735,7 +1754,6 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 
     .turnstile-card {
         width: 100%;
-        flex-basis: 100%;
     }
 
     .turnstile-card .cf-turnstile {
