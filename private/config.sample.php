@@ -5,7 +5,7 @@ return [
     'site_name' => 'Open Message Board',
     'base_url' => 'https://example.com',
     'timezone' => 'UTC',
-    'asset_version' => 'open-6',
+    'asset_version' => 'open-7',
     'db' => [
         'dsn' => 'mysql:host=127.0.0.1;dbname=message_board;charset=utf8mb4',
         'user' => 'message_board_user',

@@ -438,17 +438,23 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     position: sticky;
     top: 0;
     z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    display: grid;
+    gap: 12px;
     padding: 18px 18px 12px;
     background: rgba(var(--bg-rgb), 0.86);
     backdrop-filter: blur(18px);
     border-bottom: 1px solid var(--border);
 }
 
-.timeline-head > div:first-child {
+.timeline-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+}
+
+.timeline-title-row > div:first-child {
     min-width: 0;
 }
 
@@ -457,7 +463,7 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
-    flex: 1 1 480px;
+    flex: 0 0 auto;
     min-width: 0;
 }
 
@@ -479,9 +485,9 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 .top-search {
     display: flex;
     gap: 8px;
-    flex: 1 1 340px;
+    width: 100%;
     min-width: 0;
-    max-width: 420px;
+    max-width: none;
 }
 
 .top-search input,
@@ -557,27 +563,12 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 }
 
 @container (max-width: 680px) {
-    .timeline-head {
-        display: grid;
-    }
-
     .timeline-head-actions {
-        width: 100%;
-        justify-content: stretch;
-        flex-wrap: wrap;
-    }
-
-    .top-search {
-        max-width: none;
-        flex: 1 1 360px;
+        justify-content: flex-end;
     }
 }
 
 @container (max-width: 520px) {
-    .top-search {
-        flex-basis: 100%;
-    }
-
     .top-search input {
         padding-inline: 10px;
     }
@@ -1653,16 +1644,13 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     }
 
     .timeline-head-actions {
-        width: 100%;
         min-width: 0;
-        justify-content: stretch;
-        flex-wrap: wrap;
+        justify-content: flex-end;
     }
 
     .top-search {
         width: 100%;
         max-width: none;
-        flex: 1 1 min(100%, 360px);
     }
 
     .feed-tabs {
