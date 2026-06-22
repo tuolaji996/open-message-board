@@ -1,16 +1,17 @@
 (function () {
   const form = document.querySelector('[data-human-form]') || document.querySelector('#postForm');
   const submitButton = form?.querySelector('[data-submit-button]') || document.querySelector('#submitButton');
-  const fileInput = document.querySelector('#imageInput');
-  const dropzone = document.querySelector('#imageDropzone');
-  const preview = document.querySelector('#imagePreview');
-  const uploadMeta = document.querySelector('#uploadMeta');
+  const fileInput = document.querySelector('#assetInput') || document.querySelector('#commentAssetInput') || document.querySelector('#imageInput');
+  const dropzone = document.querySelector('#assetDropzone') || document.querySelector('#commentAssetDropzone') || document.querySelector('#imageDropzone');
+  const preview = document.querySelector('#assetPreview') || document.querySelector('#commentAssetPreview') || document.querySelector('#imagePreview');
+  const uploadMeta = document.querySelector('#uploadMeta') || document.querySelector('#commentUploadMeta');
   const slider = form?.querySelector('.slider-check') || document.querySelector('#botSlider');
   const botVerified = form?.querySelector('[name="bot_verified"]') || document.querySelector('#botVerified');
   const sliderStatus = slider?.querySelector('.slider-status') || document.querySelector('#sliderStatus');
   const readyText = submitButton?.dataset.readyText || submitButton?.textContent || '发布';
   const waitingText = submitButton?.dataset.waitingText || '完成验证后发布';
   const pendingText = submitButton?.dataset.pendingText || '正在提交...';
+  const defaultUploadText = '图片最多 8 张、单张 5MB；PDF 最多 4 个、单个 15MB';
 
   let selectedFiles = [];
   let humanVerified = false;
@@ -23,6 +24,7 @@
       input.value = '';
     }
   });
+
   document.querySelectorAll('input[name="browser_language"]').forEach((input) => {
     const languages = Array.isArray(navigator.languages) ? navigator.languages : [navigator.language];
     input.value = languages.filter(Boolean).join(', ').slice(0, 120);
@@ -40,6 +42,26 @@
   window.onHumanVerified = () => setHumanVerified(true);
   window.onHumanExpired = () => setHumanVerified(false);
 
+  function fileKind(file) {
+    const type = (file.type || '').toLowerCase();
+    const name = (file.name || '').toLowerCase();
+    if (type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
+    if (type.startsWith('image/') || /\.(jpe?g|png|gif|webp)$/.test(name)) return 'image';
+    return 'unknown';
+  }
+
+  function fileCounts(files) {
+    return files.reduce(
+      (counts, file) => {
+        const kind = fileKind(file);
+        if (kind === 'image') counts.images += 1;
+        if (kind === 'pdf') counts.pdfs += 1;
+        return counts;
+      },
+      { images: 0, pdfs: 0 }
+    );
+  }
+
   function syncFiles() {
     if (!fileInput) return;
     if (canSyncFileInput) {
@@ -48,9 +70,10 @@
       fileInput.files = transfer.files;
     }
     if (uploadMeta) {
+      const counts = fileCounts(selectedFiles);
       uploadMeta.textContent = selectedFiles.length
-        ? `${selectedFiles.length} 个附件已准备上传`
-        : '最多 8 张，单张 5MB，支持 PNG/JPG/GIF/WebP';
+        ? `已选择 ${counts.images} 张图片、${counts.pdfs} 个 PDF`
+        : defaultUploadText;
     }
   }
 
@@ -58,19 +81,31 @@
     if (!preview) return;
     preview.replaceChildren();
     selectedFiles.forEach((file, index) => {
+      const kind = fileKind(file);
       const card = document.createElement('div');
-      card.className = 'preview-card';
-      const img = document.createElement('img');
-      img.alt = file.name;
-      img.src = URL.createObjectURL(file);
-      img.onload = () => URL.revokeObjectURL(img.src);
+      card.className = `preview-card ${kind === 'pdf' ? 'is-pdf' : ''}`;
+
+      if (kind === 'image') {
+        const img = document.createElement('img');
+        img.alt = file.name;
+        img.src = URL.createObjectURL(file);
+        img.onload = () => URL.revokeObjectURL(img.src);
+        card.appendChild(img);
+      } else {
+        const icon = document.createElement('div');
+        icon.className = 'preview-file-icon';
+        icon.textContent = 'PDF';
+        card.appendChild(icon);
+      }
+
       const info = document.createElement('div');
       info.className = 'preview-info';
       const fileName = document.createElement('strong');
       fileName.textContent = file.name;
       const fileMeta = document.createElement('span');
-      fileMeta.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB · 可添加说明后发布`;
+      fileMeta.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB · ${kind === 'pdf' ? 'PDF 附件' : '图片附件'}`;
       info.append(fileName, fileMeta);
+
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'preview-remove';
@@ -81,26 +116,36 @@
         syncFiles();
         renderPreview();
       });
-      card.append(img, info, remove);
+
+      card.append(info, remove);
       preview.appendChild(card);
     });
   }
 
   function addFiles(files) {
-    const accepted = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     const next = [...selectedFiles];
     const rejected = [];
-    Array.from(files).forEach((file) => {
-      if (!accepted.includes(file.type)) {
+    Array.from(files || []).forEach((file) => {
+      const kind = fileKind(file);
+      const counts = fileCounts(next);
+      if (kind === 'unknown') {
         rejected.push(`${file.name} 格式不支持`);
         return;
       }
-      if (file.size > 5 * 1024 * 1024) {
+      if (kind === 'image' && file.size > 5 * 1024 * 1024) {
         rejected.push(`${file.name} 超过 5MB`);
         return;
       }
-      if (next.length >= 8) {
+      if (kind === 'pdf' && file.size > 15 * 1024 * 1024) {
+        rejected.push(`${file.name} 超过 15MB`);
+        return;
+      }
+      if (kind === 'image' && counts.images >= 8) {
         rejected.push('最多只能上传 8 张图片');
+        return;
+      }
+      if (kind === 'pdf' && counts.pdfs >= 4) {
+        rejected.push('最多只能上传 4 个 PDF');
         return;
       }
       const duplicate = next.some((item) => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified);
@@ -230,6 +275,33 @@
       if (replyTarget) replyTarget.hidden = true;
     });
   }
+
+  function updateAdminCommentToggle(button, expanded) {
+    const count = button.dataset.commentCount || '0';
+    button.textContent = expanded ? `收起 ${count}` : `查看 ${count}`;
+    button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  }
+
+  function closeAdminCommentPanels(exceptPanel) {
+    document.querySelectorAll('.admin-comment-drawer').forEach((panel) => {
+      if (panel === exceptPanel) return;
+      panel.hidden = true;
+      const button = document.querySelector(`[data-admin-comments-toggle][aria-controls="${panel.id}"]`);
+      if (button) updateAdminCommentToggle(button, false);
+    });
+  }
+
+  document.querySelectorAll('[data-admin-comments-toggle]').forEach((button) => {
+    const panel = document.getElementById(button.getAttribute('aria-controls') || '');
+    updateAdminCommentToggle(button, false);
+    button.addEventListener('click', () => {
+      if (!panel) return;
+      const shouldOpen = panel.hidden;
+      closeAdminCommentPanels(panel);
+      panel.hidden = !shouldOpen;
+      updateAdminCommentToggle(button, shouldOpen);
+    });
+  });
 
   setHumanVerified(false);
 })();

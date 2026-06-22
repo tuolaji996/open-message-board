@@ -35,6 +35,10 @@
     box-sizing: border-box;
 }
 
+[hidden] {
+    display: none !important;
+}
+
 html {
     scroll-behavior: smooth;
 }
@@ -668,6 +672,18 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     border-radius: 6px;
 }
 
+.preview-file-icon {
+    width: 64px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--surface-3);
+    color: var(--primary-2);
+    font-size: 13px;
+    font-weight: 950;
+}
+
 .preview-info {
     min-width: 0;
     display: grid;
@@ -1013,6 +1029,86 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     white-space: nowrap;
 }
 
+.file-attachment-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.file-attachment {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--input-bg);
+    padding: 10px;
+}
+
+.file-attachment span {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--accent-soft);
+    color: var(--primary-2);
+    font-size: 12px;
+    font-weight: 950;
+}
+
+.file-attachment strong,
+.file-attachment small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-attachment small {
+    grid-column: 2;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.file-attachment.compact {
+    width: fit-content;
+    max-width: 100%;
+    grid-template-columns: 36px minmax(0, 1fr);
+    padding: 7px;
+}
+
+.file-attachment.compact span {
+    width: 34px;
+    height: 34px;
+}
+
+.comment-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.comment-image {
+    display: block;
+    width: 92px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--input-bg);
+}
+
+.comment-image img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+}
+
 .detail-actions {
     display: flex;
     flex-wrap: wrap;
@@ -1296,50 +1392,100 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     font-size: 13px;
 }
 
-.admin-table-wrap {
-    overflow-x: auto;
+.admin-post-list {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.admin-post-card {
+    display: grid;
+    gap: 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-}
-
-.admin-table {
-    width: 100%;
-    min-width: 980px;
-    border-collapse: collapse;
-}
-
-.admin-table th,
-.admin-table td {
-    border-bottom: 1px solid var(--border);
-    padding: 11px 10px;
-    text-align: left;
-    vertical-align: top;
-}
-
-.admin-table th {
-    color: var(--muted);
     background: var(--input-bg);
-    font-size: 13px;
+    padding: 14px;
 }
 
-.admin-table tr:last-child td {
-    border-bottom: 0;
+.admin-post-main {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: start;
 }
 
-.admin-table a {
+.admin-post-title {
+    display: grid;
+    gap: 4px;
+}
+
+.admin-post-title span {
+    color: var(--faint);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.admin-post-title a {
     color: var(--primary-2);
-    font-weight: 750;
+    font-size: 16px;
+    font-weight: 900;
 }
 
-.admin-comments {
+.admin-post-meta {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) repeat(2, minmax(82px, auto)) minmax(160px, auto);
+    gap: 10px;
+}
+
+.admin-metric,
+.admin-visitor {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: rgba(var(--panel-rgb), 0.42);
+    padding: 10px;
+}
+
+.admin-metric small,
+.admin-visitor small {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.admin-metric strong,
+.admin-visitor strong {
+    display: block;
+    margin-top: 3px;
+    overflow-wrap: anywhere;
+}
+
+.admin-comment-toggle {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--primary-2);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 900;
+    padding: 6px 12px;
+}
+
+.admin-comment-drawer {
     display: grid;
     gap: 10px;
-    margin-top: 20px;
+    border-left: 3px solid var(--primary-2);
+    padding-left: 12px;
 }
 
-.admin-comments h2 {
-    margin: 0;
-    font-size: 20px;
+.admin-comment-drawer-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 800;
 }
 
 .admin-comment {
@@ -1349,7 +1495,7 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     align-items: start;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: var(--input-bg);
+    background: rgba(var(--panel-rgb), 0.42);
     padding: 12px;
 }
 
@@ -1576,6 +1722,15 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
         grid-template-columns: 1fr;
     }
 
+    .file-attachment-grid,
+    .admin-post-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-post-main {
+        grid-template-columns: 1fr;
+    }
+
     .utility-shell {
         width: calc(100% - 24px);
         padding-top: 68px;
@@ -1583,9 +1738,5 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 
     .admin-settings {
         grid-template-columns: 1fr;
-    }
-
-    .admin-table {
-        white-space: nowrap;
     }
 }

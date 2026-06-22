@@ -39,6 +39,7 @@ session_set_cookie_params([
     'samesite' => 'Lax',
 ]);
 
+session_cache_limiter('');
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
@@ -46,8 +47,10 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 header('X-Frame-Options: SAMEORIGIN');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
-if (!headers_sent() && !str_ends_with((string)($_SERVER['SCRIPT_NAME'] ?? ''), '/image.php')) {
+$scriptName = (string)($_SERVER['SCRIPT_NAME'] ?? '');
+if (!headers_sent() && !str_ends_with($scriptName, '/image.php') && !str_ends_with($scriptName, '/attachment.php')) {
     header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-store, no-transform, max-age=0');
 }
 
 function config_value(string $key, mixed $default = null): mixed
@@ -92,7 +95,7 @@ function site_url(string $path = ''): string
 
 function asset_version(): string
 {
-    return (string)config_value('asset_version', 'open-4');
+    return (string)config_value('asset_version', 'open-5');
 }
 
 function site_theme(): string
@@ -756,6 +759,35 @@ function load_post_images(int $id): array
     return $stmt->fetchAll();
 }
 
+function load_post_attachments(int $postId): array
+{
+    $stmt = db()->prepare("SELECT id, kind, original_name, mime_type, byte_size, width, height
+        FROM attachments
+        WHERE post_id = ? AND comment_id IS NULL
+        ORDER BY id");
+    $stmt->execute([$postId]);
+    return $stmt->fetchAll();
+}
+
+function load_comment_attachments(array $commentIds): array
+{
+    $commentIds = array_values(array_unique(array_filter(array_map('intval', $commentIds))));
+    if (!$commentIds) {
+        return [];
+    }
+    $placeholders = implode(',', array_fill(0, count($commentIds), '?'));
+    $stmt = db()->prepare("SELECT id, post_id, comment_id, kind, original_name, mime_type, byte_size, width, height
+        FROM attachments
+        WHERE comment_id IN ($placeholders)
+        ORDER BY id");
+    $stmt->execute($commentIds);
+    $grouped = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $grouped[(int)$row['comment_id']][] = $row;
+    }
+    return $grouped;
+}
+
 function load_comments(int $postId): array
 {
     $stmt = db()->prepare("SELECT c.*, parent.author_name AS parent_author_name
@@ -918,5 +950,167 @@ function save_images(int $postId, array $files): void
         @chmod($target, 0640);
         $original = clean_text((string)($files['name'][$i] ?? 'image'), 180);
         $insert->execute([$postId, $stored, $original, $mime, $size, (int)$dimensions[0], (int)$dimensions[1]]);
+    }
+}
+
+function normalized_uploads(array $files): array
+{
+    $names = $files['name'] ?? [];
+    if (!is_array($names)) {
+        return [[
+            'name' => $files['name'] ?? '',
+            'type' => $files['type'] ?? '',
+            'tmp_name' => $files['tmp_name'] ?? '',
+            'size' => $files['size'] ?? 0,
+            'error' => $files['error'] ?? UPLOAD_ERR_NO_FILE,
+        ]];
+    }
+    $items = [];
+    foreach ($names as $index => $name) {
+        $items[] = [
+            'name' => $name,
+            'type' => $files['type'][$index] ?? '',
+            'tmp_name' => $files['tmp_name'][$index] ?? '',
+            'size' => $files['size'][$index] ?? 0,
+            'error' => $files['error'][$index] ?? UPLOAD_ERR_NO_FILE,
+        ];
+    }
+    return $items;
+}
+
+function has_uploads(mixed $files): bool
+{
+    if (!is_array($files)) {
+        return false;
+    }
+    foreach (normalized_uploads($files) as $item) {
+        if ((int)($item['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function split_uploads_by_kind(array $files): array
+{
+    $groups = ['image' => [], 'pdf' => []];
+    foreach (normalized_uploads($files) as $item) {
+        $error = (int)($item['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+        $name = strtolower((string)($item['name'] ?? ''));
+        $type = strtolower((string)($item['type'] ?? ''));
+        $kind = null;
+        if ($type === 'application/pdf' || str_ends_with($name, '.pdf')) {
+            $kind = 'pdf';
+        } elseif (str_starts_with($type, 'image/') || preg_match('/\.(jpe?g|png|gif|webp)$/', $name)) {
+            $kind = 'image';
+        }
+        if ($kind !== null) {
+            $groups[$kind][] = $item;
+        }
+    }
+
+    $build = static function (array $items): array {
+        $result = ['name' => [], 'type' => [], 'tmp_name' => [], 'error' => [], 'size' => []];
+        foreach ($items as $item) {
+            foreach ($result as $key => $_) {
+                $result[$key][] = $item[$key] ?? ($key === 'error' ? UPLOAD_ERR_NO_FILE : '');
+            }
+        }
+        return $result;
+    };
+
+    return [
+        'images' => $build($groups['image']),
+        'pdfs' => $build($groups['pdf']),
+        'has_images' => count($groups['image']) > 0,
+        'has_pdfs' => count($groups['pdf']) > 0,
+    ];
+}
+
+function detect_upload_mime(string $tmp): string
+{
+    if (class_exists('finfo')) {
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($tmp) ?: '';
+        if ($mime !== '') {
+            return $mime;
+        }
+    }
+    if (function_exists('mime_content_type')) {
+        return mime_content_type($tmp) ?: '';
+    }
+    return '';
+}
+
+function save_attachments(int $postId, ?int $commentId, array $files, string $kind): void
+{
+    $uploadDir = (string)config_value('uploads_dir');
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0750, true)) {
+        throw new RuntimeException('Cannot create upload directory.');
+    }
+
+    $isPdf = $kind === 'pdf';
+    $allowed = $isPdf ? config_value('allowed_pdf_mimes', ['application/pdf']) : config_value('allowed_image_mimes', []);
+    $maxBytes = $isPdf ? (int)config_value('max_pdf_bytes', 15728640) : (int)config_value('max_image_bytes', 5242880);
+    $maxFiles = $isPdf ? (int)config_value('max_pdfs', 4) : (int)config_value('max_images', 8);
+    $items = array_slice(normalized_uploads($files), 0, $maxFiles);
+    $insert = db()->prepare('INSERT INTO attachments (post_id, comment_id, kind, stored_name, original_name, mime_type, byte_size, width, height) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+
+    foreach ($items as $item) {
+        $error = (int)($item['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+        if ($error !== UPLOAD_ERR_OK) {
+            throw new RuntimeException($isPdf ? 'PDF 上传失败，请压缩后重试。' : '图片上传失败，请压缩后重试。');
+        }
+        $tmp = (string)($item['tmp_name'] ?? '');
+        $size = (int)($item['size'] ?? 0);
+        if ($size <= 0 || $size > $maxBytes || !is_uploaded_file($tmp)) {
+            throw new RuntimeException($isPdf ? 'PDF 大小超过限制，单个最大 15MB。' : '图片大小超过限制，单张最大 5MB。');
+        }
+
+        $width = null;
+        $height = null;
+        $dimensions = null;
+        if (!$isPdf) {
+            $dimensions = @getimagesize($tmp);
+            if ($dimensions === false) {
+                throw new RuntimeException('图片文件无法识别。');
+            }
+            $width = (int)$dimensions[0];
+            $height = (int)$dimensions[1];
+        }
+
+        $mime = detect_upload_mime($tmp);
+        if ($mime === '' && !$isPdf && !empty($dimensions['mime'])) {
+            $mime = (string)$dimensions['mime'];
+        }
+        if ($isPdf && ($mime === 'application/x-pdf' || $mime === 'application/acrobat')) {
+            $mime = 'application/pdf';
+        }
+        if (!in_array($mime, $allowed, true)) {
+            throw new RuntimeException($isPdf ? '只允许上传 PDF 文件。' : '只允许上传 JPG、PNG、GIF、WebP 图片。');
+        }
+
+        $extension = $isPdf ? 'pdf' : match ($mime) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            default => 'bin',
+        };
+        $prefix = $commentId ? $postId . '-c' . $commentId : (string)$postId;
+        $stored = $prefix . '-' . $kind . '-' . bin2hex(random_bytes(16)) . '.' . $extension;
+        $target = rtrim($uploadDir, '/') . '/' . $stored;
+        if (!move_uploaded_file($tmp, $target)) {
+            throw new RuntimeException($isPdf ? 'PDF 保存失败。' : '图片保存失败。');
+        }
+        @chmod($target, 0640);
+        $original = clean_text((string)($item['name'] ?? ($isPdf ? 'document.pdf' : 'image')), 180);
+        $insert->execute([$postId, $commentId, $kind, $stored, $original, $mime, $size, $width, $height]);
     }
 }

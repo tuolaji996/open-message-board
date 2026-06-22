@@ -1,14 +1,14 @@
 # Open Message Board
 
-A lightweight open source message board built with PHP and MySQL. It supports public posts, image uploads, comments, email verification hooks, basic admin moderation, optional bot protection, visitor metadata review, and a configurable Yahoo Finance market widget.
+A lightweight open source message board built with PHP and MySQL. It supports public posts, image/PDF attachments, comments, email verification hooks, basic admin moderation, optional bot protection, visitor metadata review, and a configurable Yahoo Finance market widget.
 
 ## Features
 
-- Public message posting with optional title, author name, email, hashtags, and images.
-- Comment threads for published posts.
-- Admin moderation for reviewing and deleting content.
-- MySQL schema with posts, images, comments, hashtags, and moderation logs.
-- Configurable site name, base URL, timezone, upload limits, and allowed image types.
+- Public message posting with optional title, author name, email, hashtags, SEO keywords, images, and PDFs.
+- Comment threads for published posts, including optional image and PDF attachments.
+- Admin moderation for reviewing posts, opening per-post comment drawers, and deleting content.
+- MySQL schema with posts, images, attachments, comments, hashtags, and moderation logs.
+- Configurable site name, base URL, timezone, upload limits, and allowed image/PDF types.
 - Optional Cloudflare Turnstile verification.
 - Visitor metadata capture for moderation: IP address, user agent, browser language, and browser timezone.
 - Configurable Yahoo Finance ticker card with a cached one-month sparkline.
@@ -79,7 +79,7 @@ Use this if your host does not allow the web installer to write files.
    - admin username and password hash
    - mail sender settings
    - market ticker and cache duration
-   - upload directory and image limits
+   - upload directory plus image and PDF limits
 
 5. Generate an admin password hash:
 
@@ -129,6 +129,12 @@ If you installed an earlier version before visitor metadata was added, run:
 
 ```bash
 mysql -u message_board_user -p message_board < private/migrations/2026-06-22-visitor-metadata.sql
+```
+
+If you installed an earlier version before unified attachments were added, run:
+
+```bash
+mysql -u message_board_user -p message_board < private/migrations/2026-06-22-attachments.sql
 ```
 
 ## Security and Privacy Notes

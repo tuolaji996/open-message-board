@@ -28,13 +28,17 @@ if (!require_human_verification()) {
 
 $parentId = (int)($_POST['parent_id'] ?? 0);
 $body = clean_body($_POST['body'] ?? '');
+$mixedAttachments = !empty($_FILES['comment_attachments']) ? split_uploads_by_kind($_FILES['comment_attachments']) : null;
+$hasCommentImages = has_uploads($_FILES['comment_images'] ?? null);
+$hasCommentPdfs = has_uploads($_FILES['comment_pdfs'] ?? null);
+$hasMixedAttachments = $mixedAttachments && ($mixedAttachments['has_images'] || $mixedAttachments['has_pdfs']);
 if (mb_strlen($body) > 3000) {
     $body = mb_substr($body, 0, 3000);
 }
 $authorName = clean_text($_POST['author_name'] ?? '', 80);
 $authorEmail = clean_text($_POST['author_email'] ?? '', 190);
 
-if ($body === '') {
+if ($body === '' && !$hasCommentImages && !$hasCommentPdfs && !$hasMixedAttachments) {
     flash('回复内容不能为空。', 'err');
     redirect($redirect);
 }
@@ -48,6 +52,20 @@ $authorName = public_author_name($authorName);
 
 try {
     $commentId = create_comment($postId, $parentId > 0 ? $parentId : null, $body, $authorName, $authorEmail);
+    if (!empty($_FILES['comment_images'])) {
+        save_attachments($postId, $commentId, $_FILES['comment_images'], 'image');
+    }
+    if (!empty($_FILES['comment_pdfs'])) {
+        save_attachments($postId, $commentId, $_FILES['comment_pdfs'], 'pdf');
+    }
+    if ($mixedAttachments) {
+        if ($mixedAttachments['has_images']) {
+            save_attachments($postId, $commentId, $mixedAttachments['images'], 'image');
+        }
+        if ($mixedAttachments['has_pdfs']) {
+            save_attachments($postId, $commentId, $mixedAttachments['pdfs'], 'pdf');
+        }
+    }
 } catch (Throwable $e) {
     error_log('Comment failed: ' . $e->getMessage());
     flash($e instanceof RuntimeException ? $e->getMessage() : '回复失败，请稍后再试。', 'err');

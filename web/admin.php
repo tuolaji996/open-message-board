@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     flash('管理员已删除评论。');
     $returnTo = (string)($_POST['return_to'] ?? '');
     $safeReturn = str_starts_with($returnTo, '/') && !str_starts_with($returnTo, '//') && !preg_match('/[\r\n]/', $returnTo);
-    redirect($safeReturn ? $returnTo : '/admin.php#comments-admin');
+    redirect($safeReturn ? $returnTo : '/admin.php#posts-admin');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'turnstile') {
@@ -72,19 +72,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'marke
 
 $flash = flash();
 $posts = [];
-$comments = [];
+$commentsByPost = [];
 $marketPreview = null;
 if (is_admin()) {
     $stmt = db()->query("SELECT p.*,
         (SELECT COUNT(*) FROM images i WHERE i.post_id = p.id) image_count,
+        (SELECT COUNT(*) FROM attachments a WHERE a.post_id = p.id AND a.comment_id IS NULL) attachment_count,
         (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id AND c.status = 'published') comment_count
         FROM posts p WHERE p.status = 'published' ORDER BY p.created_at DESC LIMIT 200");
     $posts = $stmt->fetchAll();
-    $comments = db()->query("SELECT c.*, p.title, p.body AS post_body
-        FROM comments c
-        INNER JOIN posts p ON p.id = c.post_id
-        WHERE c.status = 'published' AND p.status = 'published'
-        ORDER BY c.created_at DESC, c.id DESC LIMIT 100")->fetchAll();
+    $postIds = array_map(static fn(array $post): int => (int)$post['id'], $posts);
+    if ($postIds) {
+        $placeholders = implode(',', array_fill(0, count($postIds), '?'));
+        $commentStmt = db()->prepare("SELECT c.*
+            FROM comments c
+            WHERE c.status = 'published' AND c.post_id IN ($placeholders)
+            ORDER BY c.created_at DESC, c.id DESC");
+        $commentStmt->execute($postIds);
+        foreach ($commentStmt->fetchAll() as $comment) {
+            $commentsByPost[(int)$comment['post_id']][] = $comment;
+        }
+    }
     $marketPreview = yahoo_market_quote();
 }
 $assetVersion = asset_version();
@@ -97,6 +105,7 @@ $assetVersion = asset_version();
     <title>管理后台 - <?= h(config_value('site_name')) ?></title>
     <meta name="robots" content="noindex">
     <link rel="stylesheet" href="/social.css?v=<?= h($assetVersion) ?>">
+    <script src="/social.js?v=<?= h($assetVersion) ?>" defer></script>
 </head>
 <body class="social-page utility-page <?= h(theme_class()) ?>">
 <header class="mobile-topbar detail-mobile-topbar">
@@ -180,80 +189,105 @@ $assetVersion = asset_version();
                     <button type="submit">保存行情 Ticker</button>
                 </form>
             </section>
-            <div class="admin-table-wrap">
-                <table class="admin-table">
-                    <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>留言</th>
-                        <th>作者</th>
-                        <th>图片</th>
-                        <th>评论</th>
-                        <th>访客数据</th>
-                        <th>时间</th>
-                        <th>操作</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <?php foreach ($posts as $post): ?>
-                        <?php $postAuthor = display_name($post['author_name'] ?? '', '匿名'); ?>
-                        <tr>
-                            <td><?= (int)$post['id'] ?></td>
-                            <td><a href="/post.php?id=<?= (int)$post['id'] ?>" target="_blank"><?= h($post['title'] ?: mb_substr((string)$post['body'], 0, 50) ?: '无标题') ?></a></td>
-                            <td><?= h($postAuthor) ?><br><span class="hint"><?= h($post['author_email'] ?: '') ?></span></td>
-                            <td><?= (int)$post['image_count'] ?></td>
-                            <td><?= (int)$post['comment_count'] ?></td>
-                            <td class="visitor-cell">
-                                <strong><?= h(ip_binary_to_text($post['created_ip'] ?? null) ?: '未知 IP') ?></strong>
+            <section class="admin-post-list" id="posts-admin">
+                <?php if (!$posts): ?>
+                    <p class="muted">暂无留言。</p>
+                <?php endif; ?>
+                <?php foreach ($posts as $post): ?>
+                    <?php
+                    $postId = (int)$post['id'];
+                    $postAuthor = display_name($post['author_name'] ?? '', '匿名');
+                    $postTitle = $post['title'] ?: mb_substr((string)$post['body'], 0, 50) ?: '无标题';
+                    $postComments = $commentsByPost[$postId] ?? [];
+                    $commentPanelId = 'admin-comments-' . $postId;
+                    ?>
+                    <article class="admin-post-card" id="admin-post-<?= $postId ?>">
+                        <div class="admin-post-main">
+                            <div class="admin-post-title">
+                                <span>#<?= $postId ?></span>
+                                <a href="/post.php?id=<?= $postId ?>" target="_blank" rel="noopener"><?= h($postTitle) ?></a>
+                            </div>
+                            <form method="post" onsubmit="return confirm('确认删除这条留言？');">
+                                <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="post" value="<?= $postId ?>">
+                                <button type="submit">删除</button>
+                            </form>
+                        </div>
+                        <div class="admin-post-meta">
+                            <div class="admin-metric">
+                                <small>作者</small>
+                                <strong><?= h($postAuthor) ?></strong>
+                                <?php if (!empty($post['author_email'])): ?><span class="hint"><?= h($post['author_email']) ?></span><?php endif; ?>
+                            </div>
+                            <div class="admin-metric">
+                                <small>附件</small>
+                                <strong><?= (int)$post['image_count'] + (int)($post['attachment_count'] ?? 0) ?></strong>
+                            </div>
+                            <div class="admin-metric">
+                                <small>评论</small>
+                                <button
+                                    type="button"
+                                    class="admin-comment-toggle"
+                                    data-admin-comments-toggle
+                                    data-comment-count="<?= (int)$post['comment_count'] ?>"
+                                    aria-controls="<?= h($commentPanelId) ?>"
+                                    aria-expanded="false"
+                                    <?= (int)$post['comment_count'] === 0 ? 'disabled' : '' ?>
+                                >查看 <?= (int)$post['comment_count'] ?></button>
+                            </div>
+                            <div class="admin-metric">
+                                <small>时间</small>
+                                <strong><?= h($post['created_at']) ?></strong>
+                            </div>
+                        </div>
+                        <div class="admin-visitor">
+                            <small>访客数据</small>
+                            <strong><?= h(ip_binary_to_text($post['created_ip'] ?? null) ?: '未知 IP') ?></strong>
+                            <div class="visitor-meta">
                                 <span><?= h($post['client_timezone'] ?: '未知时区') ?></span>
                                 <span><?= h($post['browser_language'] ?: '未知语言') ?></span>
                                 <details>
-                                    <summary>浏览器</summary>
+                                    <summary>浏览器 / User-Agent</summary>
                                     <p><?= h($post['user_agent'] ?: '未知 User-Agent') ?></p>
-                                </details>
-                            </td>
-                            <td><?= h($post['created_at']) ?></td>
-                            <td>
-                                <form method="post" onsubmit="return confirm('确认删除这条留言？');">
-                                    <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-                                    <input type="hidden" name="action" value="delete">
-                                    <input type="hidden" name="post" value="<?= (int)$post['id'] ?>">
-                                    <button type="submit">删除</button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <section class="admin-comments" id="comments-admin">
-                <h2>最新评论</h2>
-                <?php if (!$comments): ?>
-                    <p class="muted">暂无评论。</p>
-                <?php endif; ?>
-                <?php foreach ($comments as $comment): ?>
-                    <?php $commentAuthor = display_name($comment['author_name'] ?? '', '匿名'); ?>
-                    <article class="admin-comment">
-                        <div>
-                            <a href="/post.php?id=<?= (int)$comment['post_id'] ?>#comment-<?= (int)$comment['id'] ?>" target="_blank"><?= h($comment['title'] ?: mb_substr((string)$comment['post_body'], 0, 36) ?: '无标题') ?></a>
-                            <p><?= render_body(mb_substr((string)$comment['body'], 0, 220)) ?><?= mb_strlen((string)$comment['body']) > 220 ? '...' : '' ?></p>
-                            <span class="hint"><?= h($commentAuthor) ?> · <?= h($comment['created_at']) ?></span>
-                            <div class="visitor-meta">
-                                <span><?= h(ip_binary_to_text($comment['created_ip'] ?? null) ?: '未知 IP') ?></span>
-                                <span><?= h($comment['client_timezone'] ?: '未知时区') ?></span>
-                                <span><?= h($comment['browser_language'] ?: '未知语言') ?></span>
-                                <details>
-                                    <summary>User-Agent</summary>
-                                    <p><?= h($comment['user_agent'] ?: '未知 User-Agent') ?></p>
                                 </details>
                             </div>
                         </div>
-                        <form method="post" onsubmit="return confirm('确认删除这条评论？');">
-                            <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-                            <input type="hidden" name="action" value="delete_comment">
-                            <input type="hidden" name="comment" value="<?= (int)$comment['id'] ?>">
-                            <button type="submit">删除</button>
-                        </form>
+                        <section class="admin-comment-drawer" id="<?= h($commentPanelId) ?>" hidden>
+                            <div class="admin-comment-drawer-head">
+                                <strong>评论管理</strong>
+                                <span><?= count($postComments) ?> 条评论</span>
+                            </div>
+                            <?php if (!$postComments): ?>
+                                <p class="muted">暂无评论。</p>
+                            <?php endif; ?>
+                            <?php foreach ($postComments as $comment): ?>
+                                <?php $commentAuthor = display_name($comment['author_name'] ?? '', '匿名'); ?>
+                                <article class="admin-comment">
+                                    <div>
+                                        <a href="/post.php?id=<?= $postId ?>#comment-<?= (int)$comment['id'] ?>" target="_blank" rel="noopener">查看原评论</a>
+                                        <p><?= render_body(mb_substr((string)$comment['body'], 0, 220)) ?><?= mb_strlen((string)$comment['body']) > 220 ? '...' : '' ?></p>
+                                        <span class="hint"><?= h($commentAuthor) ?> · <?= h($comment['created_at']) ?></span>
+                                        <div class="visitor-meta">
+                                            <span><?= h(ip_binary_to_text($comment['created_ip'] ?? null) ?: '未知 IP') ?></span>
+                                            <span><?= h($comment['client_timezone'] ?: '未知时区') ?></span>
+                                            <span><?= h($comment['browser_language'] ?: '未知语言') ?></span>
+                                            <details>
+                                                <summary>User-Agent</summary>
+                                                <p><?= h($comment['user_agent'] ?: '未知 User-Agent') ?></p>
+                                            </details>
+                                        </div>
+                                    </div>
+                                    <form method="post" onsubmit="return confirm('确认删除这条评论？');">
+                                        <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                                        <input type="hidden" name="action" value="delete_comment">
+                                        <input type="hidden" name="comment" value="<?= (int)$comment['id'] ?>">
+                                        <input type="hidden" name="return_to" value="/admin.php#admin-post-<?= $postId ?>">
+                                        <button type="submit">删除</button>
+                                    </form>
+                                </article>
+                            <?php endforeach; ?>
+                        </section>
                     </article>
                 <?php endforeach; ?>
             </section>

@@ -19,7 +19,9 @@ if (!$post) {
 
 $tags = load_post_tags($id);
 $images = load_post_images($id);
+$attachments = load_post_attachments($id);
 $comments = load_comments($id);
+$commentAttachments = load_comment_attachments(array_map(static fn(array $comment): int => (int)$comment['id'], $comments));
 $botToken = turnstile_enabled() ? null : make_bot_challenge();
 $assetVersion = asset_version();
 $postAuthor = display_name($post['author_name'] ?? '');
@@ -72,6 +74,7 @@ $description = mb_substr(trim((string)$post['body']), 0, 150) ?: 'User-submitted
                 <span><?= h(date('Y-m-d H:i', strtotime($post['created_at']))) ?></span>
                 <?php if (!empty($post['author_email'])): ?><span><?= $post['email_verified_at'] ? '邮箱已验证' : '邮箱未验证' ?></span><?php endif; ?>
                 <?php if ($images): ?><span><?= count($images) ?> 张图片附件</span><?php endif; ?>
+                <?php if ($attachments): ?><span><?= count($attachments) ?> 个文件附件</span><?php endif; ?>
             </div>
             <h1><?= h($post['title'] ?: '无标题留言 #' . $post['id']) ?></h1>
             <div class="detail-content"><?= render_body((string)$post['body']) ?></div>
@@ -86,6 +89,18 @@ $description = mb_substr(trim((string)$post['body']), 0, 150) ?: 'User-submitted
                         <a class="attachment-tile" href="/image.php?id=<?= (int)$image['id'] ?>" target="_blank" rel="noopener">
                             <img src="/image.php?id=<?= (int)$image['id'] ?>" alt="<?= h($image['original_name']) ?>" loading="lazy">
                             <span><?= h($image['original_name']) ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($attachments): ?>
+                <div class="file-attachment-grid">
+                    <?php foreach ($attachments as $attachment): ?>
+                        <a class="file-attachment <?= $attachment['kind'] === 'pdf' ? 'is-pdf' : '' ?>" href="/attachment.php?id=<?= (int)$attachment['id'] ?>" target="_blank" rel="noopener">
+                            <span><?= $attachment['kind'] === 'pdf' ? 'PDF' : 'IMG' ?></span>
+                            <strong><?= h($attachment['original_name']) ?></strong>
+                            <small><?= number_format(((int)$attachment['byte_size']) / 1024 / 1024, 2) ?> MB</small>
                         </a>
                     <?php endforeach; ?>
                 </div>
@@ -125,6 +140,23 @@ $description = mb_substr(trim((string)$post['body']), 0, 150) ?: 'User-submitted
                         </div>
                         <?php if (!empty($comment['parent_id'])): ?><div class="reply-context">↳ 回复 <?= h($parentAuthor) ?></div><?php endif; ?>
                         <div class="comment-text"><?= render_body((string)$comment['body']) ?></div>
+                        <?php $attachmentsForComment = $commentAttachments[(int)$comment['id']] ?? []; ?>
+                        <?php if ($attachmentsForComment): ?>
+                            <div class="comment-attachments">
+                                <?php foreach ($attachmentsForComment as $attachment): ?>
+                                    <?php if ($attachment['kind'] === 'image'): ?>
+                                        <a class="comment-image" href="/attachment.php?id=<?= (int)$attachment['id'] ?>" target="_blank" rel="noopener">
+                                            <img src="/attachment.php?id=<?= (int)$attachment['id'] ?>" alt="<?= h($attachment['original_name']) ?>" loading="lazy">
+                                        </a>
+                                    <?php else: ?>
+                                        <a class="file-attachment is-pdf compact" href="/attachment.php?id=<?= (int)$attachment['id'] ?>" target="_blank" rel="noopener">
+                                            <span>PDF</span>
+                                            <strong><?= h($attachment['original_name']) ?></strong>
+                                        </a>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                         <div class="comment-actions">
                             <button type="button" class="comment-reply" data-reply-id="<?= (int)$comment['id'] ?>" data-reply-author="<?= h($commentAuthor) ?>">回复</button>
                             <?php if (is_admin()): ?>
@@ -142,7 +174,7 @@ $description = mb_substr(trim((string)$post['body']), 0, 150) ?: 'User-submitted
             <?php endforeach; ?>
         </div>
 
-        <form action="/comment.php" method="post" id="commentForm" class="comment-form" data-human-form>
+        <form action="/comment.php" method="post" enctype="multipart/form-data" id="commentForm" class="comment-form" data-human-form>
             <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
             <input type="hidden" name="post_id" value="<?= (int)$id ?>">
             <input type="hidden" name="parent_id" id="commentParentId" value="">
@@ -158,11 +190,18 @@ $description = mb_substr(trim((string)$post['body']), 0, 150) ?: 'User-submitted
                 <span></span>
                 <button type="button" id="cancelReply">取消</button>
             </div>
-            <textarea name="body" maxlength="3000" placeholder="写下你的补充、反驳、经历或提醒。支持 #Hashtag" required></textarea>
+            <textarea name="body" maxlength="3000" placeholder="写下你的补充、反驳、经历或提醒。也可以只上传图片或 PDF。"></textarea>
             <div class="composer-meta">
                 <input name="author_name" maxlength="80" placeholder="名字可选">
                 <input name="author_email" maxlength="190" type="email" placeholder="邮箱可选">
             </div>
+            <div class="dropzone asset-dropzone comment-asset-dropzone" id="commentAssetDropzone" tabindex="0" role="button" aria-label="上传评论图片或 PDF">
+                <input class="file-input" id="commentAssetInput" type="file" name="comment_attachments[]" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,.pdf" multiple>
+                <span class="drop-icon">+</span>
+                <strong>添加图片或 PDF 附件</strong>
+                <small id="commentUploadMeta">图片最多 8 张、单张 5MB；PDF 最多 4 个、单个 15MB</small>
+            </div>
+            <div class="upload-preview comment-upload-preview" id="commentAssetPreview" aria-live="polite"></div>
             <div class="composer-footer comment-footer">
                 <?php if (turnstile_enabled()): ?>
                     <div class="turnstile-card">

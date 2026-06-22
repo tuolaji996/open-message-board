@@ -5,7 +5,7 @@ return [
     'site_name' => 'Open Message Board',
     'base_url' => 'https://example.com',
     'timezone' => 'UTC',
-    'asset_version' => 'open-4',
+    'asset_version' => 'open-5',
     'db' => [
         'dsn' => 'mysql:host=127.0.0.1;dbname=message_board;charset=utf8mb4',
         'user' => 'message_board_user',
@@ -32,6 +32,9 @@ return [
     'max_images' => 8,
     'max_image_bytes' => 5 * 1024 * 1024,
     'allowed_image_mimes' => ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+    'max_pdfs' => 4,
+    'max_pdf_bytes' => 15 * 1024 * 1024,
+    'allowed_pdf_mimes' => ['application/pdf'],
     'reserved_names' => ['admin', 'moderator', 'system'],
     'reserved_name_replacement' => 'ReservedName',
     'default_keywords' => [
@@ -40,7 +43,7 @@ return [
         'user posts',
         'comments',
         'hashtags',
-        'image uploads',
+        'file attachments',
         'moderation',
         'Cloudflare Turnstile',
     ],

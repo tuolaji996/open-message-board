@@ -45,6 +45,7 @@ $deleteHash = hash('sha256', $deleteToken);
 $pdo = db();
 $pdo->beginTransaction();
 try {
+    $mixedAttachments = !empty($_FILES['attachments']) ? split_uploads_by_kind($_FILES['attachments']) : null;
     $stmt = $pdo->prepare('INSERT INTO posts (title, body, author_name, author_email, seo_keywords, delete_token_hash, verify_token_hash, verify_token_expires_at, created_ip, user_agent, client_timezone, browser_language) VALUES (?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 14 DAY), ?, ?, ?, ?)');
     $stmt->execute([
         $title ?: null,
@@ -63,6 +64,17 @@ try {
     upsert_tags($postId, extract_tags($body, $hashtags));
     if (!empty($_FILES['images'])) {
         save_images($postId, $_FILES['images']);
+    }
+    if (!empty($_FILES['pdfs'])) {
+        save_attachments($postId, null, $_FILES['pdfs'], 'pdf');
+    }
+    if ($mixedAttachments) {
+        if ($mixedAttachments['has_images']) {
+            save_images($postId, $mixedAttachments['images']);
+        }
+        if ($mixedAttachments['has_pdfs']) {
+            save_attachments($postId, null, $mixedAttachments['pdfs'], 'pdf');
+        }
     }
     $pdo->commit();
 } catch (Throwable $e) {

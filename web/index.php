@@ -55,7 +55,7 @@ $flash = flash();
 $botToken = make_bot_challenge();
 
 $title = config_value('site_name') . ' - PHP Message Board';
-$desc = 'A self-hosted message board for posts, comments, hashtags, SEO keywords, optional contact details, image uploads, and moderation.';
+$desc = 'A self-hosted message board for posts, comments, hashtags, SEO keywords, optional contact details, image/PDF attachments, and moderation.';
 ?>
 <!doctype html>
 <html lang="zh-CN">
@@ -193,13 +193,13 @@ $desc = 'A self-hosted message board for posts, comments, hashtags, SEO keywords
                     <input name="seo_keywords" maxlength="500" placeholder="SEO keyword，可选">
                 </div>
 
-                <div class="dropzone" id="imageDropzone" tabindex="0" role="button" aria-label="上传图片附件">
-                    <input class="file-input" id="imageInput" type="file" name="images[]" accept="image/jpeg,image/png,image/gif,image/webp" multiple>
+                <div class="dropzone asset-dropzone" id="assetDropzone" tabindex="0" role="button" aria-label="上传图片或 PDF 附件">
+                    <input class="file-input" id="assetInput" type="file" name="attachments[]" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,.pdf" multiple>
                     <span class="drop-icon">+</span>
-                    <strong>拖拽图片到这里，或点击选择文件</strong>
-                    <small id="uploadMeta">最多 8 张，单张 5MB，支持 PNG/JPG/GIF/WebP</small>
+                    <strong>拖拽图片或 PDF 到这里，或点击选择文件</strong>
+                    <small id="uploadMeta">图片最多 8 张、单张 5MB；PDF 最多 4 个、单个 15MB</small>
                 </div>
-                <div class="upload-preview" id="imagePreview" aria-live="polite"></div>
+                <div class="upload-preview" id="assetPreview" aria-live="polite"></div>
 
                 <div class="composer-footer">
                     <?php if (turnstile_enabled()): ?>

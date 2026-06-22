@@ -3,7 +3,10 @@ declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 
 $id = (int)($_GET['id'] ?? 0);
-$stmt = db()->prepare('SELECT * FROM images WHERE id = ?');
+$stmt = db()->prepare("SELECT i.*
+    FROM images i
+    INNER JOIN posts p ON p.id = i.post_id
+    WHERE i.id = ? AND p.status = 'published'");
 $stmt->execute([$id]);
 $image = $stmt->fetch();
 if (!$image) {
