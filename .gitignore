@@ -1,0 +1,25 @@
+# Local configuration and secrets
+private/config.php
+private/turnstile.php
+.env
+.env.*
+!.env.example
+
+# Runtime data
+uploads/
+logs/
+*.log
+*.tar.gz
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+
+# Dependency and tool caches
+vendor/
+node_modules/
+.phpunit.result.cache
+.cache/
