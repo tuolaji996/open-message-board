@@ -431,6 +431,7 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 .timeline {
     min-width: 0;
     border-right: 1px solid var(--border);
+    container-type: inline-size;
 }
 
 .timeline-head {
@@ -440,11 +441,24 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 14px;
+    gap: 16px;
     padding: 18px 18px 12px;
     background: rgba(var(--bg-rgb), 0.86);
     backdrop-filter: blur(18px);
     border-bottom: 1px solid var(--border);
+}
+
+.timeline-head > div:first-child {
+    min-width: 0;
+}
+
+.timeline-head-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 1 1 480px;
+    min-width: 0;
 }
 
 .timeline-head h1 {
@@ -465,7 +479,9 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 .top-search {
     display: flex;
     gap: 8px;
-    width: min(330px, 44%);
+    flex: 1 1 340px;
+    min-width: 0;
+    max-width: 420px;
 }
 
 .top-search input,
@@ -502,6 +518,7 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 }
 
 .top-search button {
+    flex: 0 0 auto;
     min-width: 62px;
 }
 
@@ -537,6 +554,38 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
     background: var(--accent-soft);
     border-color: var(--accent-ring);
     color: var(--text);
+}
+
+@container (max-width: 680px) {
+    .timeline-head {
+        display: grid;
+    }
+
+    .timeline-head-actions {
+        width: 100%;
+        justify-content: stretch;
+        flex-wrap: wrap;
+    }
+
+    .top-search {
+        max-width: none;
+        flex: 1 1 360px;
+    }
+}
+
+@container (max-width: 520px) {
+    .top-search {
+        flex-basis: 100%;
+    }
+
+    .top-search input {
+        padding-inline: 10px;
+    }
+
+    .top-search button {
+        min-width: 54px;
+        padding-inline: 12px;
+    }
 }
 
 .toast,
@@ -1600,6 +1649,20 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 
     .timeline-head {
         top: var(--mobile-topbar-height);
+        display: grid;
+    }
+
+    .timeline-head-actions {
+        width: 100%;
+        min-width: 0;
+        justify-content: stretch;
+        flex-wrap: wrap;
+    }
+
+    .top-search {
+        width: 100%;
+        max-width: none;
+        flex: 1 1 min(100%, 360px);
     }
 
     .feed-tabs {
@@ -1630,15 +1693,6 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
         border-left: 0;
     }
 
-    .timeline-head {
-        top: var(--mobile-topbar-height);
-        display: grid;
-    }
-
-    .top-search {
-        width: 100%;
-    }
-
     .detail-page .mobile-topbar,
     .utility-page .mobile-topbar {
         display: flex;
@@ -1649,6 +1703,19 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 @media (max-width: 640px) {
     .timeline-head h1 {
         font-size: 21px;
+    }
+
+    .top-search {
+        flex-basis: 100%;
+    }
+
+    .top-search input {
+        padding-inline: 10px;
+    }
+
+    .top-search button {
+        min-width: 54px;
+        padding-inline: 12px;
     }
 
     .composer-card,

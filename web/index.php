@@ -144,10 +144,12 @@ $desc = 'A self-hosted message board for posts, comments, hashtags, SEO keywords
                 <p class="overline">Posts / Comments / Hashtags</p>
                 <h1>公开留言板</h1>
             </div>
-            <form class="top-search" method="get" action="/">
-                <input name="q" value="<?= h($q) ?>" placeholder="搜关键词、标题、内容">
-                <button type="submit">搜索</button>
-            </form>
+            <div class="timeline-head-actions">
+                <form class="top-search" method="get" action="/">
+                    <input name="q" value="<?= h($q) ?>" placeholder="搜关键词、标题、内容">
+                    <button type="submit">搜索</button>
+                </form>
+            </div>
         </div>
 
         <nav class="feed-tabs" aria-label="留言筛选">
