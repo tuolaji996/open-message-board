@@ -63,7 +63,7 @@ function install_config_contents(array $data, string $passwordHash, string $uplo
         . "    'site_name' => " . var_export(trim((string)$data['site_name']), true) . ",\n"
         . "    'base_url' => " . var_export(normalize_base_url((string)$data['base_url']), true) . ",\n"
         . "    'timezone' => " . var_export(trim((string)$data['timezone']), true) . ",\n"
-        . "    'asset_version' => 'open-3',\n"
+        . "    'asset_version' => 'open-4',\n"
         . "    'db' => [\n"
         . "        'dsn' => " . var_export(mysql_dsn($data), true) . ",\n"
         . "        'user' => " . var_export(trim((string)$data['db_user']), true) . ",\n"

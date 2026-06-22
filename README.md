@@ -142,6 +142,7 @@ mysql -u message_board_user -p message_board < private/migrations/2026-06-22-vis
 - Review retention needs for IP addresses, user agents, browser language, browser timezone, email addresses, and moderation logs.
 - Back up the database and uploaded files before upgrades.
 - Limit database privileges to only what the application needs.
+- When deployed behind Cloudflare, the app stores `CF-Connecting-IP` only when the direct peer address is in Cloudflare's published IP ranges; otherwise it falls back to `REMOTE_ADDR`.
 
 ## Development
 

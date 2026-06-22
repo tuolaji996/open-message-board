@@ -92,7 +92,7 @@ function site_url(string $path = ''): string
 
 function asset_version(): string
 {
-    return (string)config_value('asset_version', 'open-3');
+    return (string)config_value('asset_version', 'open-4');
 }
 
 function site_theme(): string
@@ -244,19 +244,84 @@ function redirect(string $path): never
     exit;
 }
 
-function client_ip_address(): string
+function cloudflare_ip_ranges(): array
 {
-    $candidates = [
-        $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '',
-        $_SERVER['REMOTE_ADDR'] ?? '',
+    return [
+        '173.245.48.0/20',
+        '103.21.244.0/22',
+        '103.22.200.0/22',
+        '103.31.4.0/22',
+        '141.101.64.0/18',
+        '108.162.192.0/18',
+        '190.93.240.0/20',
+        '188.114.96.0/20',
+        '197.234.240.0/22',
+        '198.41.128.0/17',
+        '162.158.0.0/15',
+        '104.16.0.0/13',
+        '104.24.0.0/14',
+        '172.64.0.0/13',
+        '131.0.72.0/22',
+        '2400:cb00::/32',
+        '2606:4700::/32',
+        '2803:f800::/32',
+        '2405:b500::/32',
+        '2405:8100::/32',
+        '2a06:98c0::/29',
+        '2c0f:f248::/32',
     ];
-    foreach ($candidates as $candidate) {
-        $candidate = trim((string)$candidate);
-        if ($candidate !== '' && filter_var($candidate, FILTER_VALIDATE_IP)) {
-            return $candidate;
+}
+
+function ip_in_cidr(string $ip, string $cidr): bool
+{
+    [$range, $prefix] = array_pad(explode('/', $cidr, 2), 2, '');
+    $ipPacked = @inet_pton($ip);
+    $rangePacked = @inet_pton($range);
+    if ($ipPacked === false || $rangePacked === false || strlen($ipPacked) !== strlen($rangePacked)) {
+        return false;
+    }
+
+    $prefixLength = max(0, min((int)$prefix, strlen($ipPacked) * 8));
+    $fullBytes = intdiv($prefixLength, 8);
+    $remainingBits = $prefixLength % 8;
+    if ($fullBytes > 0 && substr($ipPacked, 0, $fullBytes) !== substr($rangePacked, 0, $fullBytes)) {
+        return false;
+    }
+    if ($remainingBits === 0) {
+        return true;
+    }
+
+    $mask = (0xff << (8 - $remainingBits)) & 0xff;
+    return (ord($ipPacked[$fullBytes]) & $mask) === (ord($rangePacked[$fullBytes]) & $mask);
+}
+
+function is_cloudflare_ip(string $ip): bool
+{
+    if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+        return false;
+    }
+    foreach (cloudflare_ip_ranges() as $range) {
+        if (ip_in_cidr($ip, $range)) {
+            return true;
         }
     }
-    return '';
+    return false;
+}
+
+function client_ip_address(): string
+{
+    $remoteAddr = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    $cfConnectingIp = trim((string)($_SERVER['HTTP_CF_CONNECTING_IP'] ?? ''));
+
+    if (
+        $cfConnectingIp !== ''
+        && filter_var($cfConnectingIp, FILTER_VALIDATE_IP)
+        && ($remoteAddr === '' || is_cloudflare_ip($remoteAddr))
+    ) {
+        return $cfConnectingIp;
+    }
+
+    return filter_var($remoteAddr, FILTER_VALIDATE_IP) ? $remoteAddr : '';
 }
 
 function client_ip_binary(): ?string
