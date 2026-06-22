@@ -1,6 +1,8 @@
 # Local configuration and secrets
 private/config.php
 private/turnstile.php
+private/market.php
+private/market-cache-*.json
 .env
 .env.*
 !.env.example

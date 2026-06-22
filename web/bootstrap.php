@@ -20,6 +20,15 @@ if (is_file($turnstileOverridePath)) {
         ]));
     }
 }
+$marketOverridePath = dirname(__DIR__) . '/private/market.php';
+if (is_file($marketOverridePath)) {
+    $marketOverride = require $marketOverridePath;
+    if (is_array($marketOverride)) {
+        $config['market'] = array_merge($config['market'] ?? [], array_intersect_key($marketOverride, [
+            'ticker' => true,
+        ]));
+    }
+}
 date_default_timezone_set((string)($config['timezone'] ?? 'UTC'));
 
 session_set_cookie_params([
@@ -83,7 +92,7 @@ function site_url(string $path = ''): string
 
 function asset_version(): string
 {
-    return (string)config_value('asset_version', 'open-1');
+    return (string)config_value('asset_version', 'open-2');
 }
 
 function site_theme(): string
@@ -151,6 +160,47 @@ function save_turnstile_settings(bool $enabled, string $siteKey, string $secretK
     }
 }
 
+function market_settings_path(): string
+{
+    return dirname(__DIR__) . '/private/market.php';
+}
+
+function market_cache_path(string $ticker): string
+{
+    $safe = preg_replace('/[^A-Z0-9._=-]+/', '-', strtoupper($ticker)) ?: 'AAPL';
+    return dirname(__DIR__) . '/private/market-cache-' . $safe . '.json';
+}
+
+function normalize_ticker(string $ticker): string
+{
+    $ticker = strtoupper(trim($ticker));
+    $ticker = preg_replace('/[^A-Z0-9.^=_-]+/', '', $ticker) ?? '';
+    return $ticker !== '' ? mb_substr($ticker, 0, 24) : 'AAPL';
+}
+
+function save_market_settings(string $ticker): void
+{
+    $settings = ['ticker' => normalize_ticker($ticker)];
+    $body = "<?php\n"
+        . "declare(strict_types=1);\n\n"
+        . "return " . var_export($settings, true) . ";\n";
+    $path = market_settings_path();
+    $tmp = $path . '.tmp-' . bin2hex(random_bytes(6));
+    if (file_put_contents($tmp, $body, LOCK_EX) === false) {
+        throw new RuntimeException('Market settings could not be saved.');
+    }
+    @chmod($tmp, 0640);
+    if (!rename($tmp, $path)) {
+        @unlink($tmp);
+        throw new RuntimeException('Market settings could not be saved.');
+    }
+}
+
+function current_market_ticker(): string
+{
+    return normalize_ticker((string)config_value('market.ticker', 'AAPL'));
+}
+
 function current_url(): string
 {
     $host = $_SERVER['HTTP_HOST'] ?? parse_url(site_url(), PHP_URL_HOST);
@@ -194,11 +244,51 @@ function redirect(string $path): never
     exit;
 }
 
+function client_ip_address(): string
+{
+    $candidates = [
+        $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '',
+        $_SERVER['REMOTE_ADDR'] ?? '',
+    ];
+    foreach ($candidates as $candidate) {
+        $candidate = trim((string)$candidate);
+        if ($candidate !== '' && filter_var($candidate, FILTER_VALIDATE_IP)) {
+            return $candidate;
+        }
+    }
+    return '';
+}
+
 function client_ip_binary(): ?string
 {
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    $ip = client_ip_address();
     $packed = @inet_pton($ip);
     return $packed === false ? null : $packed;
+}
+
+function ip_binary_to_text(mixed $binary): string
+{
+    if (!is_string($binary) || $binary === '') {
+        return '';
+    }
+    $ip = @inet_ntop($binary);
+    return is_string($ip) ? $ip : '';
+}
+
+function request_user_agent(): string
+{
+    return clean_text($_SERVER['HTTP_USER_AGENT'] ?? '', 255);
+}
+
+function request_browser_language(): string
+{
+    $value = clean_text($_POST['browser_language'] ?? '', 120);
+    return $value !== '' ? $value : clean_text($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '', 120);
+}
+
+function request_client_timezone(): string
+{
+    return clean_text($_POST['client_timezone'] ?? '', 80);
 }
 
 function clean_text(?string $value, int $max): string
@@ -409,6 +499,127 @@ function require_human_verification(): bool
     return is_array($result) && !empty($result['success']);
 }
 
+function http_json(string $url, int $timeout = 6): ?array
+{
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CONNECTTIMEOUT => $timeout,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_HTTPHEADER => ['User-Agent: Mozilla/5.0 OpenMessageBoard/1.0', 'Accept: application/json'],
+        ]);
+        $body = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if (!is_string($body) || $body === '' || $status >= 400) {
+            return null;
+        }
+    } else {
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => "User-Agent: Mozilla/5.0 OpenMessageBoard/1.0\r\nAccept: application/json\r\n",
+                'timeout' => $timeout,
+            ],
+        ]);
+        $body = @file_get_contents($url, false, $context);
+        if (!is_string($body) || $body === '') {
+            return null;
+        }
+    }
+
+    $json = json_decode($body, true);
+    return is_array($json) ? $json : null;
+}
+
+function build_sparkline_points(array $values): string
+{
+    $values = array_values(array_filter($values, static fn($value) => is_numeric($value)));
+    $count = count($values);
+    if ($count === 0) {
+        return '';
+    }
+    if ($count === 1) {
+        return '0,50 100,50';
+    }
+    $min = min($values);
+    $max = max($values);
+    $range = max(0.0001, $max - $min);
+    $points = [];
+    foreach ($values as $index => $value) {
+        $x = ($index / ($count - 1)) * 100;
+        $y = 92 - ((($value - $min) / $range) * 76);
+        $points[] = round($x, 2) . ',' . round($y, 2);
+    }
+    return implode(' ', $points);
+}
+
+function yahoo_market_quote(?string $ticker = null): array
+{
+    $ticker = normalize_ticker($ticker ?: current_market_ticker());
+    $cacheSeconds = max(60, (int)config_value('market.cache_seconds', 300));
+    $cachePath = market_cache_path($ticker);
+    if (is_file($cachePath) && time() - filemtime($cachePath) < $cacheSeconds) {
+        $cached = json_decode((string)file_get_contents($cachePath), true);
+        if (is_array($cached)) {
+            return $cached + ['stale' => false];
+        }
+    }
+
+    $url = 'https://query1.finance.yahoo.com/v8/finance/chart/' . rawurlencode($ticker) . '?range=1mo&interval=1d';
+    $json = http_json($url);
+    $result = $json['chart']['result'][0] ?? null;
+    if (is_array($result)) {
+        $meta = is_array($result['meta'] ?? null) ? $result['meta'] : [];
+        $quote = $result['indicators']['quote'][0] ?? [];
+        $closes = array_values(array_filter($quote['close'] ?? [], static fn($value) => is_numeric($value)));
+        $price = isset($meta['regularMarketPrice']) ? (float)$meta['regularMarketPrice'] : (float)($closes[count($closes) - 1] ?? 0);
+        $previous = isset($meta['previousClose']) ? (float)$meta['previousClose'] : (isset($meta['chartPreviousClose']) ? (float)$meta['chartPreviousClose'] : null);
+        if ($previous === null && count($closes) > 1) {
+            $previous = (float)$closes[count($closes) - 2];
+        }
+        $change = $previous && $previous > 0 ? $price - $previous : 0.0;
+        $payload = [
+            'ticker' => $ticker,
+            'price' => $price,
+            'currency' => (string)($meta['currency'] ?? 'USD'),
+            'exchange' => (string)($meta['exchangeName'] ?? ''),
+            'change' => $change,
+            'change_percent' => $previous && $previous > 0 ? ($change / $previous) * 100 : 0.0,
+            'sparkline' => build_sparkline_points($closes),
+            'as_of' => isset($meta['regularMarketTime']) ? date('Y-m-d H:i', (int)$meta['regularMarketTime']) : date('Y-m-d H:i'),
+            'error' => '',
+            'stale' => false,
+        ];
+        @file_put_contents($cachePath, json_encode($payload, JSON_UNESCAPED_SLASHES), LOCK_EX);
+        return $payload;
+    }
+
+    if (is_file($cachePath)) {
+        $cached = json_decode((string)file_get_contents($cachePath), true);
+        if (is_array($cached)) {
+            $cached['stale'] = true;
+            $cached['error'] = 'Yahoo Finance is temporarily unavailable; showing cached data.';
+            return $cached;
+        }
+    }
+
+    return [
+        'ticker' => $ticker,
+        'price' => 0.0,
+        'currency' => 'USD',
+        'exchange' => '',
+        'change' => 0.0,
+        'change_percent' => 0.0,
+        'sparkline' => '',
+        'as_of' => '',
+        'error' => 'Yahoo Finance is temporarily unavailable.',
+        'stale' => false,
+    ];
+}
+
 function keywords_for(?array $post = null, array $tags = []): string
 {
     $keywords = config_value('default_keywords', []);
@@ -507,7 +718,7 @@ function create_comment(int $postId, ?int $parentId, string $body, string $autho
         $parentId = null;
     }
 
-    $stmt = db()->prepare('INSERT INTO comments (post_id, parent_id, body, author_name, author_email, created_ip, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    $stmt = db()->prepare('INSERT INTO comments (post_id, parent_id, body, author_name, author_email, created_ip, user_agent, client_timezone, browser_language) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $stmt->execute([
         $postId,
         $parentId,
@@ -515,7 +726,9 @@ function create_comment(int $postId, ?int $parentId, string $body, string $autho
         $authorName ?: null,
         $authorEmail ?: null,
         client_ip_binary(),
-        clean_text($_SERVER['HTTP_USER_AGENT'] ?? '', 255),
+        request_user_agent(),
+        request_client_timezone() ?: null,
+        request_browser_language() ?: null,
     ]);
     return (int)db()->lastInsertId();
 }

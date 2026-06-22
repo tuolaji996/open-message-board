@@ -1,6 +1,6 @@
 # Open Message Board
 
-A lightweight open source message board built with PHP and MySQL. It supports public posts, image uploads, comments, email verification hooks, basic admin moderation, and optional bot protection.
+A lightweight open source message board built with PHP and MySQL. It supports public posts, image uploads, comments, email verification hooks, basic admin moderation, optional bot protection, visitor metadata review, and a configurable Yahoo Finance market widget.
 
 ## Features
 
@@ -10,6 +10,8 @@ A lightweight open source message board built with PHP and MySQL. It supports pu
 - MySQL schema with posts, images, comments, hashtags, and moderation logs.
 - Configurable site name, base URL, timezone, upload limits, and allowed image types.
 - Optional Cloudflare Turnstile verification.
+- Visitor metadata capture for moderation: IP address, user agent, browser language, and browser timezone.
+- Configurable Yahoo Finance ticker card with a cached one-month sparkline.
 - Private application configuration kept outside the public web root.
 
 ## Requirements
@@ -49,6 +51,7 @@ A lightweight open source message board built with PHP and MySQL. It supports pu
    - database DSN, username, and password
    - admin username and password hash
    - mail sender settings
+   - market ticker and cache duration
    - upload directory and image limits
 
 7. Generate an admin password hash:
@@ -68,6 +71,8 @@ A lightweight open source message board built with PHP and MySQL. It supports pu
 
    The PHP process must be able to write to this directory. If your host uses a different deployment layout, set `uploads_dir` in `private/config.php` to an absolute path outside the public web root.
 
+9. If you want to update Turnstile or the market ticker from the admin panel, make sure the PHP process can write small override files in `private/`.
+
 ## Optional Cloudflare Turnstile
 
 To enable Turnstile:
@@ -78,6 +83,27 @@ To enable Turnstile:
 
 Leave Turnstile disabled for local development unless you have valid test keys.
 
+## Optional Market Widget
+
+The left rail can display a Yahoo Finance quote card. Configure it in `private/config.php`:
+
+```php
+'market' => [
+    'ticker' => 'AAPL',
+    'cache_seconds' => 300,
+],
+```
+
+Admins can also change the ticker from the admin panel. Cached quote files are written under `private/market-cache-*.json` and should not be committed.
+
+## Upgrading
+
+If you installed an earlier version before visitor metadata was added, run:
+
+```bash
+mysql -u message_board_user -p message_board < private/migrations/2026-06-22-visitor-metadata.sql
+```
+
 ## Security and Privacy Notes
 
 - Keep `private/config.php` out of version control.
@@ -85,7 +111,7 @@ Leave Turnstile disabled for local development unless you have valid test keys.
 - Store uploads outside the public web root when possible, and serve them through application routes.
 - Use a strong admin password and replace any default sample values before deployment.
 - Use HTTPS in production.
-- Review retention needs for IP addresses, user agents, email addresses, and moderation logs.
+- Review retention needs for IP addresses, user agents, browser language, browser timezone, email addresses, and moderation logs.
 - Back up the database and uploaded files before upgrades.
 - Limit database privileges to only what the application needs.
 

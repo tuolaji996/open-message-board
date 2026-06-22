@@ -45,7 +45,7 @@ $deleteHash = hash('sha256', $deleteToken);
 $pdo = db();
 $pdo->beginTransaction();
 try {
-    $stmt = $pdo->prepare('INSERT INTO posts (title, body, author_name, author_email, seo_keywords, delete_token_hash, verify_token_hash, verify_token_expires_at, created_ip, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 14 DAY), ?, ?)');
+    $stmt = $pdo->prepare('INSERT INTO posts (title, body, author_name, author_email, seo_keywords, delete_token_hash, verify_token_hash, verify_token_expires_at, created_ip, user_agent, client_timezone, browser_language) VALUES (?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 14 DAY), ?, ?, ?, ?)');
     $stmt->execute([
         $title ?: null,
         $body ?: null,
@@ -55,7 +55,9 @@ try {
         $deleteHash,
         $verifyHash,
         client_ip_binary(),
-        clean_text($_SERVER['HTTP_USER_AGENT'] ?? '', 255),
+        request_user_agent(),
+        request_client_timezone() ?: null,
+        request_browser_language() ?: null,
     ]);
     $postId = (int)$pdo->lastInsertId();
     upsert_tags($postId, extract_tags($body, $hashtags));

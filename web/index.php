@@ -50,6 +50,7 @@ $stats = db()->query("SELECT
     (SELECT COUNT(*) FROM posts WHERE status = 'published') AS posts_count,
     (SELECT COUNT(*) FROM images i INNER JOIN posts p ON p.id = i.post_id AND p.status = 'published') AS images_count,
     (SELECT COUNT(DISTINCT h.id) FROM hashtags h INNER JOIN post_hashtags ph ON ph.hashtag_id = h.id INNER JOIN posts p ON p.id = ph.post_id AND p.status = 'published') AS tags_count")->fetch();
+$market = yahoo_market_quote();
 $flash = flash();
 $botToken = make_bot_challenge();
 
@@ -108,6 +109,33 @@ $desc = 'A self-hosted message board for posts, comments, hashtags, SEO keywords
             <div><strong><?= (int)$stats['tags_count'] ?></strong><span>标签</span></div>
         </div>
         <a class="primary-pill" href="#composer">发一条</a>
+        <section class="market-card <?= ((float)$market['change']) >= 0 ? 'is-up' : 'is-down' ?>">
+            <div class="market-top">
+                <span>Yahoo Finance</span>
+                <strong><?= h($market['ticker']) ?></strong>
+            </div>
+            <?php if ($market['error']): ?>
+                <p class="market-error"><?= h($market['error']) ?></p>
+            <?php else: ?>
+                <div class="market-price">
+                    <strong><?= number_format((float)$market['price'], 2) ?></strong>
+                    <span><?= h($market['currency']) ?></span>
+                </div>
+                <div class="market-change">
+                    <?= ((float)$market['change']) >= 0 ? '+' : '' ?><?= number_format((float)$market['change'], 2) ?>
+                    / <?= ((float)$market['change_percent']) >= 0 ? '+' : '' ?><?= number_format((float)$market['change_percent'], 2) ?>%
+                </div>
+                <?php if ($market['sparkline']): ?>
+                    <svg class="market-spark" viewBox="0 0 100 100" role="img" aria-label="<?= h($market['ticker']) ?> 1 month trend" preserveAspectRatio="none">
+                        <polyline points="<?= h($market['sparkline']) ?>"></polyline>
+                    </svg>
+                <?php endif; ?>
+                <div class="market-meta">
+                    <span><?= h($market['exchange'] ?: 'Market') ?></span>
+                    <span><?= h($market['as_of']) ?></span>
+                </div>
+            <?php endif; ?>
+        </section>
     </aside>
 
     <section class="timeline">
@@ -145,6 +173,8 @@ $desc = 'A self-hosted message board for posts, comments, hashtags, SEO keywords
             <div class="avatar">M</div>
             <form action="/submit.php" method="post" enctype="multipart/form-data" id="postForm" class="composer" data-human-form>
                 <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                <input type="hidden" name="client_timezone" value="">
+                <input type="hidden" name="browser_language" value="">
                 <?php if (!turnstile_enabled()): ?>
                     <input type="hidden" name="bot_token" value="<?= h($botToken) ?>">
                     <input type="hidden" name="bot_verified" id="botVerified" value="0">

@@ -146,6 +146,8 @@ $description = mb_substr(trim((string)$post['body']), 0, 150) ?: 'User-submitted
             <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
             <input type="hidden" name="post_id" value="<?= (int)$id ?>">
             <input type="hidden" name="parent_id" id="commentParentId" value="">
+            <input type="hidden" name="client_timezone" value="">
+            <input type="hidden" name="browser_language" value="">
             <?php if (!turnstile_enabled()): ?>
                 <input type="hidden" name="bot_token" value="<?= h((string)$botToken) ?>">
                 <input type="hidden" name="bot_verified" value="0">

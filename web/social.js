@@ -16,6 +16,18 @@
   let humanVerified = false;
   const canSyncFileInput = typeof window.DataTransfer === 'function';
 
+  document.querySelectorAll('input[name="client_timezone"]').forEach((input) => {
+    try {
+      input.value = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch (error) {
+      input.value = '';
+    }
+  });
+  document.querySelectorAll('input[name="browser_language"]').forEach((input) => {
+    const languages = Array.isArray(navigator.languages) ? navigator.languages : [navigator.language];
+    input.value = languages.filter(Boolean).join(', ').slice(0, 120);
+  });
+
   function setHumanVerified(value) {
     humanVerified = value;
     if (botVerified) botVerified.value = value ? '1' : '0';

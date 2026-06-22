@@ -115,6 +115,7 @@ textarea {
 
 .left-rail {
     border-right: 1px solid var(--border);
+    overflow-y: auto;
 }
 
 .right-rail {
@@ -318,6 +319,109 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 .rail-stats span {
     color: var(--faint);
     font-size: 12px;
+}
+
+.market-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 300px;
+    margin-top: 18px;
+    border: 1px solid color-mix(in srgb, var(--primary) 48%, var(--border));
+    border-radius: var(--radius);
+    background:
+        linear-gradient(180deg, rgba(var(--panel-rgb), 0.92), rgba(var(--bg-rgb), 0.9)),
+        radial-gradient(circle at 20% 12%, rgba(34, 211, 238, 0.18), transparent 36%);
+    padding: 16px;
+}
+
+.market-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-top: 3px solid var(--primary);
+}
+
+.market-top,
+.market-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.market-top span,
+.market-meta {
+    color: var(--faint);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.market-top strong {
+    font-size: 22px;
+}
+
+.market-price {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin-top: 18px;
+}
+
+.market-price strong {
+    font-size: 34px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.market-price span,
+.market-change {
+    color: var(--muted);
+    font-weight: 800;
+}
+
+.market-change {
+    margin-top: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+.market-card.is-up .market-change {
+    color: var(--accent);
+}
+
+.market-card.is-down .market-change {
+    color: var(--danger);
+}
+
+.market-spark {
+    display: block;
+    width: 100%;
+    height: 118px;
+    margin: 18px 0 12px;
+}
+
+.market-spark polyline {
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 4;
+    vector-effect: non-scaling-stroke;
+}
+
+.market-card.is-up .market-spark {
+    color: var(--accent);
+}
+
+.market-card.is-down .market-spark {
+    color: var(--danger);
+}
+
+.market-error {
+    margin: 28px 0 0;
+    color: var(--muted);
+    font-size: 14px;
 }
 
 .timeline {
@@ -1200,7 +1304,7 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 
 .admin-table {
     width: 100%;
-    min-width: 760px;
+    min-width: 980px;
     border-collapse: collapse;
 }
 
@@ -1256,6 +1360,45 @@ body:has(#composer:target) .rail-nav a.nav-compose span {
 
 .hint {
     color: var(--faint);
+    font-size: 12px;
+}
+
+.visitor-cell {
+    min-width: 190px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.visitor-cell strong,
+.visitor-cell span,
+.visitor-meta span {
+    display: block;
+}
+
+.visitor-cell details,
+.visitor-meta details {
+    margin-top: 5px;
+}
+
+.visitor-cell summary,
+.visitor-meta summary {
+    color: var(--primary-2);
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.visitor-cell p,
+.visitor-meta p {
+    overflow-wrap: anywhere;
+    margin: 5px 0 0;
+    color: var(--faint);
+}
+
+.visitor-meta {
+    display: grid;
+    gap: 3px;
+    margin-top: 8px;
+    color: var(--muted);
     font-size: 12px;
 }
 

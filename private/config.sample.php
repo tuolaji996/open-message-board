@@ -5,7 +5,7 @@ return [
     'site_name' => 'Open Message Board',
     'base_url' => 'https://example.com',
     'timezone' => 'UTC',
-    'asset_version' => 'open-1',
+    'asset_version' => 'open-2',
     'db' => [
         'dsn' => 'mysql:host=127.0.0.1;dbname=message_board;charset=utf8mb4',
         'user' => 'message_board_user',
@@ -23,6 +23,10 @@ return [
         'enabled' => false,
         'site_key' => '',
         'secret_key' => '',
+    ],
+    'market' => [
+        'ticker' => 'AAPL',
+        'cache_seconds' => 300,
     ],
     'uploads_dir' => __DIR__ . '/../uploads',
     'max_images' => 8,

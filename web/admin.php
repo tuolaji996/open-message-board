@@ -61,9 +61,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'turns
     redirect('/admin.php#turnstile-settings');
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'market') {
+    require_admin();
+    require_csrf();
+    $ticker = normalize_ticker((string)($_POST['ticker'] ?? 'AAPL'));
+    save_market_settings($ticker);
+    flash('行情 Ticker 已更新为 ' . $ticker . '。');
+    redirect('/admin.php#market-settings');
+}
+
 $flash = flash();
 $posts = [];
 $comments = [];
+$marketPreview = null;
 if (is_admin()) {
     $stmt = db()->query("SELECT p.*,
         (SELECT COUNT(*) FROM images i WHERE i.post_id = p.id) image_count,
@@ -75,6 +85,7 @@ if (is_admin()) {
         INNER JOIN posts p ON p.id = c.post_id
         WHERE c.status = 'published' AND p.status = 'published'
         ORDER BY c.created_at DESC, c.id DESC LIMIT 100")->fetchAll();
+    $marketPreview = yahoo_market_quote();
 }
 $assetVersion = asset_version();
 ?>
@@ -147,6 +158,28 @@ $assetVersion = asset_version();
                     <button type="submit">保存 Turnstile 设置</button>
                 </form>
             </section>
+            <section class="admin-settings" id="market-settings">
+                <div>
+                    <h2>左侧行情卡片</h2>
+                    <p>前台左侧空位会显示 Yahoo Finance 行情和 1 个月走势。可以切换成任意 Ticker。</p>
+                    <?php if ($marketPreview): ?>
+                        <div class="settings-status">
+                            当前：<?= h($marketPreview['ticker']) ?>
+                            <?php if (!$marketPreview['error']): ?>
+                                · <?= number_format((float)$marketPreview['price'], 2) ?> <?= h($marketPreview['currency']) ?>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <form method="post" class="utility-form settings-form">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="market">
+                    <label>Ticker
+                        <input name="ticker" value="<?= h(current_market_ticker()) ?>" autocomplete="off" placeholder="AAPL">
+                    </label>
+                    <button type="submit">保存行情 Ticker</button>
+                </form>
+            </section>
             <div class="admin-table-wrap">
                 <table class="admin-table">
                     <thead>
@@ -156,6 +189,7 @@ $assetVersion = asset_version();
                         <th>作者</th>
                         <th>图片</th>
                         <th>评论</th>
+                        <th>访客数据</th>
                         <th>时间</th>
                         <th>操作</th>
                     </tr>
@@ -169,6 +203,15 @@ $assetVersion = asset_version();
                             <td><?= h($postAuthor) ?><br><span class="hint"><?= h($post['author_email'] ?: '') ?></span></td>
                             <td><?= (int)$post['image_count'] ?></td>
                             <td><?= (int)$post['comment_count'] ?></td>
+                            <td class="visitor-cell">
+                                <strong><?= h(ip_binary_to_text($post['created_ip'] ?? null) ?: '未知 IP') ?></strong>
+                                <span><?= h($post['client_timezone'] ?: '未知时区') ?></span>
+                                <span><?= h($post['browser_language'] ?: '未知语言') ?></span>
+                                <details>
+                                    <summary>浏览器</summary>
+                                    <p><?= h($post['user_agent'] ?: '未知 User-Agent') ?></p>
+                                </details>
+                            </td>
                             <td><?= h($post['created_at']) ?></td>
                             <td>
                                 <form method="post" onsubmit="return confirm('确认删除这条留言？');">
@@ -195,6 +238,15 @@ $assetVersion = asset_version();
                             <a href="/post.php?id=<?= (int)$comment['post_id'] ?>#comment-<?= (int)$comment['id'] ?>" target="_blank"><?= h($comment['title'] ?: mb_substr((string)$comment['post_body'], 0, 36) ?: '无标题') ?></a>
                             <p><?= render_body(mb_substr((string)$comment['body'], 0, 220)) ?><?= mb_strlen((string)$comment['body']) > 220 ? '...' : '' ?></p>
                             <span class="hint"><?= h($commentAuthor) ?> · <?= h($comment['created_at']) ?></span>
+                            <div class="visitor-meta">
+                                <span><?= h(ip_binary_to_text($comment['created_ip'] ?? null) ?: '未知 IP') ?></span>
+                                <span><?= h($comment['client_timezone'] ?: '未知时区') ?></span>
+                                <span><?= h($comment['browser_language'] ?: '未知语言') ?></span>
+                                <details>
+                                    <summary>User-Agent</summary>
+                                    <p><?= h($comment['user_agent'] ?: '未知 User-Agent') ?></p>
+                                </details>
+                            </div>
                         </div>
                         <form method="post" onsubmit="return confirm('确认删除这条评论？');">
                             <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
